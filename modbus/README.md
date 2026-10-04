@@ -39,11 +39,15 @@ python modbus_rtu.py -p <port> [options]
 | `--stopbits`       | 1 or 2                                       | required|
 | `-t`, `--timeout`  | Response timeout in seconds                  | 1.0     |
 | `-s`, `--slave`    | Slave address 1-247 (decimal or hex)         | required|
-| `-f`, `--function` | Function code 1-4 (decimal or hex)           | required|
+| `-f`, `--function` | Function code 1-4, 6, 16 (decimal or hex)    | required|
 | `-a`, `--address`  | Start address (decimal or hex like `0x6B`)   | required|
 | `-c`, `--count`    | Number of coils / registers to read          | 1       |
+| `-v`, `--values`   | Values to write, decimal or hex              |         |
 
+- Count (-c) used for reading registers and Values (-v) used for writing registers
 - Address is the **0 based** address sent in the frame.
+- Read functions: **0x01** Read Coils, **0x02** Read Discrete Inputs, **0x03** Read Holding Registers, **0x04** Read Input Registers
+- Write functions: **0x06** Write Single Register, **0x10** Write Multiple Registers
 
 ## Scope
 
@@ -66,3 +70,18 @@ $ python modbus_rtu.py -p COM3 -s 1 -f 3 -a 0x6B -c 3
 TX: 01 03 00 6b 00 03 74 17
 RX: 01 03 06 02 2b 00 00 00 64 05 7a
 ``` 
+
+Write value 3 to register 1 of slave 1 (0x06):
+
+```
+$ python3 modbus_rtu.py -p /dev/ttyUSB0 -s 1 -f 6 -a 1 -v 3
+TX: 01 06 00 01 00 03 98 0b
+```
+
+Write values 10 and 0x102 to registers 1 and 2 of slave 1 (0x10):
+
+```
+$ python3 modbus_rtu.py -p /dev/ttyUSB0 -s 1 -f 16 -a 1 -v 10 0x102
+TX: 01 10 00 01 00 02 04 00 0a 01 02 92 30
+```
+
