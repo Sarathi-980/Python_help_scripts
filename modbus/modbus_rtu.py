@@ -16,6 +16,10 @@ MAX_READ_COUNT = {1 : 2000, 2 : 2000, 3 : 125, 4 : 125}
 # WRITE FUNCTIONS
 WRITE_FUNCTIONS = (5, 6, 15, 16)
 
+# No response exception for reading serial line
+class NoResponse(Exception):
+    pass
+
 def modbus_rtu_crc16(data: bytes) -> int:
     crc = 0xFFFF
     # Iterating all bytes in data
@@ -99,9 +103,12 @@ def build_write_multiple_registers_pdu(address: int, values: list) -> bytes:
     data = struct.pack(f'>{count}H', *values)    # based on count, it determines how many hex it will struct
     return header + data
 
+
 # We can calculate the exact bytes we want in response, so using that count is good.
 def read_exact(ser: serial.Serial, n: int) -> bytes:
     data = ser.read(n)
+    if len(data) == 0:
+        raise NoResponse(f"No reponse, read 0 bytes but expected {n} bytes.")
     if len(data) != n:
         raise TimeoutError(f"expected {n} bytes, got {len(data)}: {data.hex(' ')}")
     return data
@@ -185,7 +192,17 @@ def main():
 
     # Send and receive
     with open_port(args.port, args.baud, args.parity, args.stopbits, args.timeout) as ser:
-        response = transact(ser, frame)
+        try:
+            response = transmit(ser, frame)
+        except NoResponse:
+            if frame[1] != 6: # checking whether it is single write, if not we just raise exception
+                raise
+            print("No response to function code 6 (single write), retrying with function code 16 (multiple write)")
+            pdu = build_write_multiple_registers_pdu(args.address, args.values)
+            frame = build_rtu_frame(args.slave, pdu)
+            print("After single write failed, trying with multiple write rtu frame. TX: ", frame.hex(' '))
+            response = transmit(ser, frame)
+
         print("RX:", response.hex(' '))
 
 
